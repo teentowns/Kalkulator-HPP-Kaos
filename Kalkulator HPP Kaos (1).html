@@ -1,0 +1,205 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Kalkulator HPP Kaos</title>
+<style>
+:root{--bg:#f6f7f9;--card:#fff;--tx:#1f2430;--mut:#667085;--bd:#e0e4ea;--ac:#2f6fed;--ok:#1f7a4d;--bad:#b3261e;--in:#fff;color-scheme:light;
+box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#14171c;--card:#1e232b;--tx:#eef1f5;--mut:#a3acba;--bd:#333b47;--ac:#6b9bff;--ok:#5fcf9a;--bad:#ff8a80;--in:#181c22;color-scheme:dark}}
+:root[data-theme="dark"]{--bg:#14171c;--card:#1e232b;--tx:#eef1f5;--mut:#a3acba;--bd:#333b47;--ac:#6b9bff;--ok:#5fcf9a;--bad:#ff8a80;--in:#181c22;color-scheme:dark}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--tx);font:15px/1.45 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+main{max-width:720px;margin:0 auto;padding:16px}
+h1{font-size:20px;margin:4px 0 2px}
+p.sub{margin:0 0 14px;color:var(--mut);font-size:13px}
+.card{background:var(--card);border:1px solid var(--bd);border-radius:14px;padding:14px;margin-bottom:12px}
+.grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.grid .full{grid-column:1/-1}
+label{display:block;font-size:12px;color:var(--mut);margin-bottom:3px}
+input,select{width:100%;padding:9px 10px;border:1px solid var(--bd);border-radius:9px;background:var(--in);color:var(--tx);font:inherit}
+input:focus,select:focus{outline:2px solid var(--ac)}
+small{display:block;color:var(--mut);font-size:11px;margin-top:2px}
+h2{font-size:14px;margin:0 0 10px}
+.tabs{display:flex;gap:6px;margin:0 0 12px}
+.tab{flex:1;padding:10px 4px;font-size:13px}
+.tab.on{background:var(--ac);border-color:var(--ac);color:#fff;font-weight:600}
+.res{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:12px;padding-top:12px;border-top:1px dashed var(--bd)}
+.res div{background:var(--bg);border-radius:10px;padding:8px 10px}
+.res span{display:block;font-size:11px;color:var(--mut)}
+.res b{font-size:16px}
+.res .big b{color:var(--ac);font-size:18px}
+.note{grid-column:1/-1;font-size:12px;margin:0}
+.note.m{color:var(--mut)}
+.ok{color:var(--ok)}.bad{color:var(--bad)}
+.row{display:flex;gap:8px;flex-wrap:wrap;margin-top:6px}
+button{padding:10px 14px;border-radius:10px;border:1px solid var(--bd);background:var(--card);color:var(--tx);font:inherit;cursor:pointer}
+button.pri{background:var(--ac);border-color:var(--ac);color:#fff;font-weight:600}
+button.del{margin-top:10px;font-size:12px;padding:6px 10px;color:var(--mut)}
+.foot{font-size:12px;color:var(--mut);margin-top:14px}
+</style>
+</head>
+<body>
+<main>
+<h1>Kalkulator HPP Kaos</h1>
+<p class="sub">Alurnya: isi rincian checkout Shopee di tab 1, lalu pilih pembelian itu di tab 2 (kaos polos) atau tab 3 (sablon custom). Semua dalam Rupiah. Data tersimpan di HP/browser ini.</p>
+
+<div class="card">
+<h2>Pengaturan (berlaku untuk semua)</h2>
+<div class="grid">
+<div><label for="sU">Target untung bersih (%)</label><input id="sU" type="number" inputmode="decimal" min="0" step="any"></div>
+<div><label for="sP">Cadangan diskon/promo (%)</label><input id="sP" type="number" inputmode="decimal" min="0" step="any"></div>
+<div class="full"><label for="sB">Pembulatan harga ke atas (Rp)</label><input id="sB" type="number" inputmode="numeric" min="0" step="500"><small>Isi 0 kalau tidak mau dibulatkan.</small></div>
+</div>
+</div>
+
+<div class="tabs"><button class="tab" data-t="beli">1. Beli kaos</button><button class="tab" data-t="polos">2. Kaos polos</button><button class="tab" data-t="custom">3. Sablon custom</button></div>
+<div id="list"></div>
+<div class="row"><button class="pri" id="add">+ Tambah</button><button id="reset">Reset semua</button></div>
+<p class="foot">Modal kaos per pcs = Total Pembayaran ÷ jumlah pcs. Harga ideal = (HPP) ÷ (1 − promo% − untung%). Di sablon custom, biaya desain dan set-up dibagi rata ke semua pcs.</p>
+</main>
+
+<script>
+(function(){
+const KEY='hpp-kaos-v2';
+const DEF=()=>({untung:25,promo:5,bulat:1000});
+const uid=()=>'b'+Date.now().toString(36)+Math.random().toString(36).slice(2,6);
+function bB(e){return {id:uid(),nama:e?'':'Contoh dari screenshot checkout',qty:e?'':'3',pesanan:e?'':'148000',kirim:e?'':'8000',layanan:e?'':'2200',dProduk:e?'':'1850',dKirim:e?'':'8000',voucher:e?'':'7308'};}
+function bP(s,e){return {nama:e?'':'Kaos polos contoh',src:s||'',modal:'',packing:'0',admin:'0',lain:'0',jual:''};}
+function bC(s,e){return {order:e?'':'Order contoh',src:s||'',modal:'',qty:'3',metode:'dtf',bahan:'',listrik:'',waste:'0',vendor:'',setup:'',desain:'0',packing:'0',ongkir:'0',admin:'0',lain:'0',jual:''};}
+const b0=bB();
+let S={set:DEF(),beli:[b0],polos:[bP(b0.id)],custom:[bC(b0.id)],tab:'beli'};
+try{const r=localStorage.getItem(KEY);if(r){const p=JSON.parse(r);if(p&&p.set&&Array.isArray(p.beli)&&Array.isArray(p.polos)&&Array.isArray(p.custom))S=Object.assign(S,p);}}catch(e){}
+S.set=Object.assign(DEF(),S.set);
+if(!S.beli.length)S.beli.push(bB(1));
+if(!S.polos.length)S.polos.push(bP('',1));
+if(!S.custom.length)S.custom.push(bC('',1));
+if(!['beli','polos','custom'].includes(S.tab))S.tab='beli';
+const save=()=>{try{localStorage.setItem(KEY,JSON.stringify(S));}catch(e){}};
+const n=v=>+v||0;
+const rp=x=>(x<0?'-':'')+'Rp '+Math.round(Math.abs(x)).toLocaleString('id-ID');
+const pct=x=>x.toFixed(1).replace('.',',')+'%';
+const esc=s=>String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/"/g,'&quot;');
+const findB=id=>S.beli.find(b=>b.id===id);
+const purTotal=p=>n(p.pesanan)+n(p.kirim)+n(p.layanan)-n(p.dProduk)-n(p.dKirim)-n(p.voucher);
+const kaos=it=>{const p=findB(it.src);return p?(n(p.qty)>0?purTotal(p)/n(p.qty):0):n(it.modal);};
+function kaosNote(it){const p=findB(it.src);if(!p)return [];
+return [n(p.qty)>0?`Modal kaos ${rp(kaos(it))} per pcs (dari pembelian: ${esc(p.nama||'tanpa nama')})`:'Pembelian yang dipilih belum diisi jumlah pcs-nya di tab 1.'];}
+
+function price(hpp,jualIn){
+if(hpp<=0)return {empty:1};
+const d=1-(n(S.set.promo)+n(S.set.untung))/100;
+if(d<=0.05)return {err:1};
+let ideal=hpp/d;const b=n(S.set.bulat);if(b>0)ideal=Math.ceil(ideal/b)*b;
+const jual=n(jualIn)>0?n(jualIn):ideal;
+const untung=jual-hpp-jual*n(S.set.promo)/100;
+return {hpp,ideal,jual,untung,margin:jual>0?untung/jual*100:0};
+}
+function resHTML(r,notes){
+if(r.empty)return '<p class="note m">Isi modal kaos dulu supaya HPP bisa dihitung.</p>'+notes.map(t=>`<p class="note m">${t}</p>`).join('');
+if(r.err)return '<p class="note bad">Target untung + promo terlalu besar, harga tidak bisa dihitung. Kecilkan salah satunya.</p>';
+const c=r.margin>=20?'ok':'bad',m=r.margin>=20?'Margin sehat.':(r.margin>=0?'Margin tipis, pertimbangkan naikkan harga.':'Rugi di harga ini.');
+return `<div><span>HPP per pcs</span><b>${rp(r.hpp)}</b></div><div class="big"><span>Harga jual ideal</span><b>${rp(r.ideal)}</b></div><div><span>Harga yang dipakai</span><b>${rp(r.jual)}</b></div><div><span>Untung per pcs</span><b class="${c}">${rp(r.untung)}</b></div><p class="note ${c}">Margin ${pct(r.margin)}. ${m}</p>`+notes.map(t=>`<p class="note m">${t}</p>`).join('');
+}
+
+const F=(k,l,v,o={})=>`<div${o.m?` data-m="${o.m}"`:''}${o.s?` data-s="1"`:''}${o.full?' class="full"':''}><label>${l}</label><input data-k="${k}" ${o.t?'':'type="number" inputmode="decimal" min="0" step="any"'} value="${esc(v)}"${o.p?` placeholder="${o.p}"`:''}>${o.h?`<small>${o.h}</small>`:''}</div>`;
+const SRC=it=>`<div class="full"><label>Modal kaos dari</label><select data-k="src"><option value="">Isi manual</option>${S.beli.map((b,j)=>`<option value="${b.id}"${it.src===b.id?' selected':''}>${esc(b.nama||('Pembelian '+(j+1)))}</option>`).join('')}</select></div>`;
+const MAN=it=>F('modal','Modal kaos per pcs (Rp)',it.modal,{s:1,full:1,h:'Harga checkout per pcs, sudah termasuk ongkir dan biaya Shopee'});
+const END='</div><div class="res"></div><button class="del" data-del="1">Hapus</button></div>';
+
+function bHTML(it,i){return `<div class="card" data-i="${i}"><h2>Pembelian ${i+1} (checkout Shopee)</h2><div class="grid">`+
+F('nama','Nama pembelian / varian kaos',it.nama,{t:1,full:1,p:'mis. Oversize cotton combed 24s'})+
+F('qty','Jumlah pcs yang dibeli',it.qty,{full:1})+
+F('pesanan','Subtotal Pesanan (Rp)',it.pesanan)+
+F('kirim','Subtotal Pengiriman (Rp)',it.kirim)+
+F('layanan','Biaya Layanan (Rp)',it.layanan)+
+F('dProduk','Diskon Produk (Rp)',it.dProduk,{h:'Isi angkanya saja, tanpa minus'})+
+F('dKirim','Total Diskon Pengiriman (Rp)',it.dKirim)+
+F('voucher','Voucher Diskon (Rp)',it.voucher)+END;}
+function pHTML(it,i){return `<div class="card" data-i="${i}"><h2>Kaos polos ${i+1}</h2><div class="grid">`+
+F('nama','Nama / varian kaos',it.nama,{t:1,full:1,p:'mis. Oversize hitam'})+SRC(it)+MAN(it)+
+F('packing','Packing per pcs (Rp)',it.packing)+
+F('admin','Biaya admin penjualan per pcs (Rp)',it.admin,{h:'0 kalau jual via WhatsApp'})+
+F('lain','Biaya lain per pcs (Rp)',it.lain)+
+F('jual','Harga jual pilihanmu (opsional)',it.jual,{h:'Kosongkan = pakai harga ideal'})+END;}
+function cHTML(it,i){return `<div class="card" data-i="${i}"><h2>Order sablon ${i+1}</h2><div class="grid">`+
+F('order','Nama order / desain',it.order,{t:1,full:1,p:'mis. Kaos komunitas, 12 pcs'})+SRC(it)+MAN(it)+
+F('qty','Jumlah pcs order',it.qty)+
+`<div><label>Metode sablon</label><select data-k="metode"><option value="dtf"${it.metode==='dtf'?' selected':''}>DTF</option><option value="plastisol"${it.metode==='plastisol'?' selected':''}>Plastisol</option></select></div>`+
+F('bahan','Bahan DTF per pcs (Rp)',it.bahan,{m:'dtf',h:'Film, tinta, powder'})+
+F('listrik','Listrik &amp; pressing per pcs (Rp)',it.listrik,{m:'dtf'})+
+F('waste','Cadangan gagal cetak (%)',it.waste,{m:'dtf',h:'mis. 5'})+
+F('vendor','Sablon plastisol per pcs (Rp)',it.vendor,{m:'plastisol',h:'Harga vendor/hitungan sendiri, sudah termasuk tinta'})+
+F('setup','Set-up / screen per desain (Rp)',it.setup,{m:'plastisol',h:'Biaya sekali per desain, dibagi rata'})+
+F('desain','Biaya desain total (Rp)',it.desain,{h:'0 kalau gratis'})+
+F('packing','Packing per pcs (Rp)',it.packing)+
+F('ongkir','Ongkir kirim ditanggung per pcs (Rp)',it.ongkir)+
+F('admin','Biaya admin penjualan per pcs (Rp)',it.admin,{h:'0 kalau jual via WhatsApp'})+
+F('lain','Biaya lain per pcs (Rp)',it.lain)+
+F('jual','Harga jual pilihanmu per pcs (opsional)',it.jual,{full:1,h:'Kosongkan = pakai harga ideal'})+END;}
+
+const list=document.getElementById('list');
+const HT={beli:bHTML,polos:pHTML,custom:cHTML};
+function upd(i){
+const c=list.children[i],it=S[S.tab][i];if(!c)return;
+const el=c.querySelector('.res');
+if(S.tab==='beli'){
+const t=purTotal(it),q=n(it.qty);
+el.innerHTML=`<div><span>Total Pembayaran (hitungan)</span><b>${rp(t)}</b></div><div class="big"><span>Modal kaos per pcs</span><b>${q>0?rp(t/q):'-'}</b></div><div><span>Harga kaos per pcs</span><b>${q>0?rp(n(it.pesanan)/q):'-'}</b></div><div><span>Biaya tambahan per pcs</span><b>${q>0?rp((t-n(it.pesanan))/q):'-'}</b></div><p class="note m">Cocokkan Total Pembayaran dengan angka di aplikasi Shopee. ${q>0?'':'Isi jumlah pcs untuk melihat modal per pcs.'}</p><p class="note m">Biaya tambahan = pengiriman + biaya layanan − semua diskon dan voucher.</p>`;
+return;
+}
+const man=!findB(it.src);
+c.querySelectorAll('[data-s]').forEach(x=>{x.style.display=man?'':'none';});
+const k=kaos(it),notes=kaosNote(it);
+if(S.tab==='polos'){
+el.innerHTML=resHTML(price(k>0?k+n(it.packing)+n(it.admin)+n(it.lain):0,it.jual),notes);
+}else{
+c.querySelectorAll('[data-m]').forEach(x=>{x.style.display=x.dataset.m===it.metode?'':'none';});
+const q=Math.max(1,n(it.qty));
+const mc=it.metode==='dtf'?(n(it.bahan)+n(it.listrik))*(1+n(it.waste)/100):n(it.vendor)+n(it.setup)/q;
+const fx=n(it.desain)/q,oth=n(it.packing)+n(it.ongkir)+n(it.admin)+n(it.lain);
+const r=price(k>0?k+mc+fx+oth:0,it.jual);
+if(!r.empty&&!r.err){
+notes.push(`Rincian per pcs: kaos ${rp(k)} + sablon &amp; desain ${rp(mc+fx)} + lainnya (packing, ongkir, admin, dll) ${rp(oth)}`);
+notes.push(`Total order ${q} pcs: omzet ${rp(r.jual*q)}, untung ${rp(r.untung*q)}`);
+if(mc+fx<=0)notes.push('Biaya sablon masih 0, isi dulu supaya HPP akurat.');
+}
+el.innerHTML=resHTML(r,notes);
+}
+}
+function render(){
+document.querySelectorAll('.tab').forEach(b=>b.classList.toggle('on',b.dataset.t===S.tab));
+list.innerHTML=S[S.tab].map(HT[S.tab]).join('');
+for(let i=0;i<S[S.tab].length;i++)upd(i);
+}
+list.addEventListener('input',e=>{
+const c=e.target.closest('.card');if(!c||!e.target.dataset.k)return;
+const i=+c.dataset.i;S[S.tab][i][e.target.dataset.k]=e.target.value;save();upd(i);
+});
+const blank=()=>{const l=S.beli[S.beli.length-1];const s=l?l.id:'';return S.tab==='beli'?bB(1):S.tab==='polos'?bP(s,1):bC(s,1);};
+let pend=null;
+list.addEventListener('click',e=>{
+const b=e.target.closest('[data-del]');if(!b)return;
+const i=+b.closest('.card').dataset.i;
+if(pend===b){S[S.tab].splice(i,1);if(!S[S.tab].length)S[S.tab].push(blank());save();render();pend=null;return;}
+pend=b;b.textContent='Yakin hapus? Tap lagi';
+setTimeout(()=>{if(pend===b&&document.body.contains(b)){b.textContent='Hapus';pend=null;}},3000);
+});
+document.querySelectorAll('.tab').forEach(b=>{b.onclick=()=>{S.tab=b.dataset.t;save();render();};});
+document.getElementById('add').onclick=()=>{S[S.tab].push(blank());save();render();
+const l=list.lastElementChild;if(l)l.scrollIntoView({behavior:'smooth',block:'start'});};
+const rs=document.getElementById('reset');let rpend=false;
+rs.onclick=()=>{
+if(!rpend){rpend=true;rs.textContent='Yakin? Tap lagi';setTimeout(()=>{rpend=false;rs.textContent='Reset semua';},3000);return;}
+const b=bB();S={set:DEF(),beli:[b],polos:[bP(b.id)],custom:[bC(b.id)],tab:S.tab};save();rpend=false;rs.textContent='Reset semua';setIn();render();
+};
+const ids={sU:'untung',sP:'promo',sB:'bulat'};
+function setIn(){for(const id in ids)document.getElementById(id).value=S.set[ids[id]];}
+for(const id in ids){document.getElementById(id).addEventListener('input',e=>{S.set[ids[id]]=n(e.target.value);save();for(let i=0;i<S[S.tab].length;i++)upd(i);});}
+setIn();render();
+})();
+</script>
+</body>
+</html>
